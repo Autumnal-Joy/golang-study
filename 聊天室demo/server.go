@@ -87,7 +87,7 @@ func handleConnect(conn net.Conn) {
 
 	// 判断用户退出
 	quit := make(chan bool)
-	// 判断用户活跃 make(chan bool)
+	// 判断用户活跃
 	isActive := make(chan bool)
 
 	// 处理用户发送的消息
@@ -99,12 +99,11 @@ func handleConnect(conn net.Conn) {
 			// 用户主动退出
 			delete(onlineUserMap, client.addr)
 			message <- wrapMsg(client, "logout")
+			fmt.Println("用户退出", addr)
 			return
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * 60):
 			// 超时强制踢出
-			delete(onlineUserMap, client.addr)
-			message <- wrapMsg(client, "logout")
-			return
+			quit <- true
 		case <-isActive:
 			// 重置计时器
 		}
@@ -143,9 +142,11 @@ func handleMessage(conn net.Conn, client Client, quit chan<- bool, isActive chan
 			return
 		}
 		msg := strings.TrimSpace(string(buf[:n]))
-		fmt.Printf("用户%s输入: %q\n", client.name, msg)
+		fmt.Printf("用户%s: %s输入: %q\n", client.addr, client.name, msg)
 
-		if msg == "/who" {
+		if msg == "/help" {
+			client.c <- "/who (查询在线用户列表)\n/rename [new name] (修改用户名)\n/quit (退出聊天室)"
+		} else if msg == "/who" {
 			// 用户查询在线列表
 			userList := "online user list:\n"
 			for _, user := range onlineUserMap {
@@ -156,8 +157,11 @@ func handleMessage(conn net.Conn, client Client, quit chan<- bool, isActive chan
 			// 用户改名
 			client.name = msg[8:]
 			onlineUserMap[client.addr] = client
+			client.c <- "rename success\n"
 		} else if msg == "/quit" {
 			quit <- true
+		} else if strings.HasPrefix(msg, "/") {
+			client.c <- "no instruction\n"
 		} else {
 			// 发送用户消息到全局消息通道
 			message <- wrapMsg(client, msg)
