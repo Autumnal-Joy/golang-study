@@ -18,9 +18,8 @@ func server() {
 	}
 	defer listener.Close()
 
-	fmt.Println("等待客户端连接")
-
 	for {
+		fmt.Println("等待客户端连接")
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("listener.Accept err: ", err)
